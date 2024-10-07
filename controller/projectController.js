@@ -2,13 +2,17 @@ const catchAsync = require("../utils/catchAsync");
 const project = require("../db/models/project");
 const user = require("../db/models/user");
 const AppError = require("../utils/appError");
+const cloudinary = require("../controller/cloudinary/cloudinaryConfig"); // Đường dẫn đến file cloudinary config
+
+const formidable = require("formidable");
 
 const createProject = catchAsync(async (req, res, next) => {
   const body = req.body;
   const userId = req.user.id;
+
+  // Create the project with text data
   const newProject = await project.create({
     title: body.title,
-    productImage: body.productImage,
     price: body.price,
     shortDescription: body.shortDescription,
     description: body.description,
@@ -17,11 +21,35 @@ const createProject = catchAsync(async (req, res, next) => {
     tags: body.tags,
     createdBy: userId,
   });
+
+  // Handle the productImage file upload
+  if (req.files && req.files.productImage) {
+    const productImage = Array.isArray(req.files.productImage)
+      ? req.files.productImage[0]
+      : req.files.productImage;
+
+    try {
+      const result = await cloudinary.uploader.upload(productImage.filepath, {
+        resource_type: "auto",
+        folder: "projects", // Store the images in a separate folder called "projects"
+      });
+      
+      // Update project with the Cloudinary image URL
+      newProject.productImage = result.secure_url;
+    } catch (err) {
+      return next(new AppError("Error uploading product image to Cloudinary", 500));
+    }
+  }
+
+  await newProject.save(); // Save the project after updating the image URL
+
   return res.status(201).json({
     status: "success",
     data: newProject,
   });
 });
+
+
 
 const getAllProject = catchAsync(async (req, res, next) => {
   const page = req.query.page ? parseInt(req.query.page) : 1;
@@ -29,12 +57,13 @@ const getAllProject = catchAsync(async (req, res, next) => {
   const offset = (page - 1) * limit; // Bắt đầu từ phần tử nào
   const userId = req.user.id;
   // Truy vấn dữ liệu và số lượng tổng cộng
-  const { rows: projects, count: totalProjects } = await project.findAndCountAll({
-    include: user,
-    where: { createdBy: userId },
-    limit: limit,
-    offset: offset,
-  });
+  const { rows: projects, count: totalProjects } =
+    await project.findAndCountAll({
+      include: user,
+      where: { createdBy: userId },
+      limit: limit,
+      offset: offset,
+    });
 
   const totalPages = Math.ceil(totalProjects / limit); // Tính tổng số trang
 
@@ -47,14 +76,13 @@ const getAllProject = catchAsync(async (req, res, next) => {
       )
     );
   }
-  
+
   return res.json({
     status: "success",
     page: page, // Trang hiện tại
     totalPages: totalPages, // Tổng số trang
     totalItems: totalProjects, // Tổng số người dùng
     data: projects,
-    
   });
 });
 

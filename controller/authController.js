@@ -1,4 +1,5 @@
 const user = require("../db/models/user");
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const catchAsync = require("../utils/catchAsync");
@@ -6,6 +7,7 @@ const AppError = require("../utils/appError");
 const nodemailer = require("nodemailer");
 const SibApiV3Sdk = require("@sendinblue/client"); // Thư viện Brevo
 const { Op } = require("sequelize");
+const RoleChangeRequest = require("../db/models/RoleChangeRequest");
 
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET_KEY, {
@@ -13,83 +15,153 @@ const generateToken = (payload) => {
   });
 };
 
-// Signup function
 const signup = catchAsync(async (req, res, next) => {
   const { userType, firstName, lastName, email, password, confirmPassword } =
     req.body;
 
   // Kiểm tra userType có hợp lệ không
-  if (!["1", "2"].includes(userType)) {
-    return next(new AppError("Invalid user type", 400));
+  if (
+    !Array.isArray(userType) ||
+    userType.length === 0 || // Phải có ít nhất một giá trị
+    !userType.every((type) => ["1", "2"].includes(type))
+  ) {
+    return next(
+      new AppError("Invalid user type. Must be either [1] or [2]", 400)
+    );
   }
 
-  // Tạo người dùng mới
-  const newUser = await user.create({
-    userType,
-    firstName,
-    lastName,
-    email,
-    password,
-    confirmPassword,
+  // Kiểm tra người dùng đã tồn tại hay chưa
+  const existingUser = await user.findOne({ where: { email } });
+  if (existingUser) {
+    // Người dùng đã tồn tại
+    if (userType.length === 1) {
+      if (userType[0] === "2" && existingUser.userType.includes("1")) {
+        // Người dùng đã có vai trò '1' và đang đăng ký vai trò '2'
+        // Cập nhật người dùng để thêm vai trò '2' mà không cần gửi yêu cầu phê duyệt
+        await existingUser.update({
+          userType: [...existingUser.userType, "2"],
+        });
+
+        return res.status(200).json({
+          status: "success",
+          message: "Role '2' has been added successfully.",
+        });
+      } else if (userType[0] === "1" && existingUser.userType.includes("2")) {
+        // Người dùng đã có vai trò '2' và đang đăng ký vai trò '1'
+        // Gửi yêu cầu phê duyệt cho admin
+        await RoleChangeRequest.create({
+          userId: existingUser.id,
+          status: "pending",
+          reviewedBy: null,
+          requesterEmail: existingUser.email,
+          // Chưa được xem xét
+        });
+
+        return res.status(200).json({
+          status: "success",
+          message:
+            "Request to add role '1' has been sent. Please wait for approval.",
+        });
+      } else {
+        return next(
+          new AppError("User already exists with the requested role", 400)
+        );
+      }
+    }
+  } else {
+    // Tạo người dùng mới
+    const newUser = await user.create({
+      userType,
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    if (!newUser) {
+      return next(new AppError("Failed to create the user", 400));
+    }
+
+    const result = newUser.toJSON();
+    delete result.password;
+    delete result.deletedAt;
+
+    // Tạo token JWT
+    result.token = generateToken({ id: result.id });
+
+    res.status(201).json({
+      status: "success",
+      data: result,
+    });
+  }
+});
+const approveRoleChange = catchAsync(async (req, res, next) => {
+  const { userId } = req.body;
+
+  // Tìm yêu cầu thay đổi vai trò đang chờ xử lý
+  const roleChangeRequest = await RoleChangeRequest.findOne({
+    where: { userId, status: "pending" },
   });
 
-  if (!newUser) {
-    return next(new AppError("Failed to create the user", 400));
+  if (!roleChangeRequest) {
+    return next(new AppError("No pending request found", 404));
   }
 
-  // Chuyển đổi người dùng thành JSON và xóa các thông tin không cần thiết
-  const result = newUser.toJSON();
-  delete result.password;
-  delete result.deletedAt;
+  // Tìm người dùng để cập nhật vai trò
+  const userToUpdate = await user.findByPk(userId);
+  if (!userToUpdate) {
+    return next(new AppError("User not found", 404));
+  }
 
-  // Tạo token JWT
-  result.token = generateToken({ id: result.id });
+  // Cập nhật vai trò của người dùng
+  userToUpdate.userType = [...userToUpdate.userType, "1"]; // Thêm vai trò ['1']
+  await userToUpdate.save();
 
-  // Trả về phản hồi thành công
-  res.status(201).json({
+  // Cập nhật trạng thái yêu cầu
+  roleChangeRequest.status = "approved";
+  await roleChangeRequest.save();
+
+  res.status(200).json({
     status: "success",
-    data: result,
+    message: "User role updated successfully",
   });
 });
-//admin
+
+// Login function for admin
 const loginAdmin = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // Kiểm tra tính hợp lệ của dữ liệu đầu vào
   if (!email || !password) {
     return next(new AppError("Please provide both email and password", 400));
   }
 
-  // Tìm người dùng theo email
   const result = await user.findOne({ where: { email } });
 
-  // Kiểm tra nếu người dùng không tồn tại hoặc so sánh mật khẩu không đúng
   if (!result || !(await bcrypt.compare(password, result.password))) {
     return next(new AppError("Incorrect email or password", 401));
   }
 
-  // Kiểm tra vai trò của người dùng
-  if (result.userType !== "0") {
+  // Kiểm tra nếu userType không chứa "0" (super admin)
+  if (!result.userType.includes("0")) {
     return next(
       new AppError("You are not authorized to access this resource", 403)
     );
   }
 
-  // Tạo token JWT
   const token = generateToken({ id: result.id });
 
-  // Trả về phản hồi thành công với token
   res.status(200).json({
     status: "success",
     token,
   });
 });
 
+// Change password for admin
 const changePasswordForAdmin = catchAsync(async (req, res, next) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
   let idToken = "";
 
-  // Kiểm tra tiêu đề authorization có chứa token không
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
@@ -101,28 +173,29 @@ const changePasswordForAdmin = catchAsync(async (req, res, next) => {
     return next(new AppError("Please login to get access", 401));
   }
 
-  // Xác minh token
   const tokenDetail = jwt.verify(idToken, process.env.JWT_SECRET_KEY);
 
-  // Tìm người dùng từ token
   const freshUser = await user.findByPk(tokenDetail.id);
 
-  // Kiểm tra nếu người dùng không tồn tại
   if (!freshUser) {
     return next(new AppError("User no longer exists", 401));
   }
-  // Kiểm tra nếu người dùng không tồn tại hoặc không phải admin
-  if (freshUser.userType !== "0") {
+
+  // Kiểm tra nếu userType không chứa "0"
+  if (!freshUser.userType.includes("0")) {
     return next(
       new AppError("You do not have permission to perform this action", 403)
     );
   }
+
   if (!(await bcrypt.compare(currentPassword, freshUser.password))) {
     return next(new AppError("Current password is incorrect", 401));
   }
+
   if (newPassword !== confirmPassword) {
     return next(new AppError("Passwords do not match", 400));
   }
+
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   freshUser.password = hashedPassword;
 
@@ -130,38 +203,6 @@ const changePasswordForAdmin = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     message: "Password updated successfully",
-  });
-});
-
-// Login function
-const login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-
-  // Kiểm tra tính hợp lệ của dữ liệu đầu vào
-  if (!email || !password) {
-    return next(new AppError("Please provide both email and password", 400));
-  }
-
-  // Tìm người dùng theo email
-  const result = await user.findOne({ where: { email } });
-
-  // Kiểm tra nếu người dùng không tồn tại hoặc so sánh mật khẩu không đúng
-  if (!result || !(await bcrypt.compare(password, result.password))) {
-    return next(new AppError("Incorrect email or password", 401));
-  }
-  if (result.userType == "0") {
-    return next(
-      new AppError("You are not authorized to access this resource", 403)
-    );
-  }
-
-  // Tạo token JWT
-  const token = generateToken({ id: result.id });
-
-  // Trả về phản hồi thành công với token
-  res.status(200).json({
-    status: "success",
-    token,
   });
 });
 
@@ -292,6 +333,34 @@ const forgotPassword = catchAsync(async (req, res, next) => {
   });
 });
 
+// Login function for regular users
+const login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return next(new AppError("Please provide both email and password", 400));
+  }
+
+  const result = await user.findOne({ where: { email } });
+
+  if (!result || !(await bcrypt.compare(password, result.password))) {
+    return next(new AppError("Incorrect email or password", 401));
+  }
+
+  // Kiểm tra nếu userType chứa "0" (admin)
+  if (result.userType.includes("0")) {
+    return next(
+      new AppError("You are not authorized to access this resource", 403)
+    );
+  }
+
+  const token = generateToken({ id: result.id });
+
+  res.status(200).json({
+    status: "success",
+    token,
+  });
+});
 const resetPasswordController = catchAsync(async (req, res, next) => {
   const { resetCode, newPassword } = req.body;
 
@@ -327,17 +396,17 @@ const resetPasswordController = catchAsync(async (req, res, next) => {
     message: "Password has been reset successfully",
   });
 });
-
-const restricTo = (...userType) => {
-  const checkPermisson = (req, res, next) => {
-    if (!userType.includes(req.user.userType)) {
+// Restrict function based on userType array
+const restricTo = (...userTypes) => {
+  const checkPermission = (req, res, next) => {
+    if (!userTypes.some((type) => req.user.userType.includes(type))) {
       return next(
-        new AppError("you don't have permission to perform this action", 403)
+        new AppError("You don't have permission to perform this action", 403)
       );
     }
     return next();
   };
-  return checkPermisson;
+  return checkPermission;
 };
 
 module.exports = {
@@ -350,4 +419,5 @@ module.exports = {
   resetPasswordController,
   loginAdmin,
   changePasswordForAdmin,
+  approveRoleChange,
 };

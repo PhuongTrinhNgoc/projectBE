@@ -15,12 +15,9 @@ const user = sequelize.define(
       type: DataTypes.INTEGER,
     },
     userType: {
-      type: DataTypes.ENUM("0", "1", "2"),
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: false,
       validate: {
-        notNull: {
-          msg: "userType cannot be null",
-        },
         notEmpty: {
           msg: "userType cannot be empty",
         },
