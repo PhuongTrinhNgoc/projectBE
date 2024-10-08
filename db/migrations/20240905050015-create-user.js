@@ -10,7 +10,8 @@ module.exports = {
         type: Sequelize.INTEGER,
       },
       userType: {
-        type: Sequelize.ENUM("0", "1", "2"),
+        // type: Sequelize.ENUM("0", "1", "2"),
+        type: Sequelize.ARRAY(Sequelize.STRING), 
       },
       firstName: {
         type: Sequelize.STRING,
@@ -44,6 +45,7 @@ module.exports = {
       },
       deletedAt: {
         type: Sequelize.DATE,
+        
       },
     });
   },

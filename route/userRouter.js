@@ -1,12 +1,18 @@
+const express = require("express");
 const { authentication, restricTo } = require("../controller/authController");
 const { getAllUser, updateUserInfo } = require("../controller/userController");
-const upload = require('../middlewere/uploadMiddlewere'); // Thêm middleware để xử lý tải lên tệp tin
+const formidableMiddleware = require("../middlewere/formidableMiddleware"); // Correct path to the middleware
 
-const router = require("express").Router();
+const router = express.Router();
 
-// Route để lấy tất cả người dùng, chỉ dành cho Super Admin
+// Route to get all users (only for Super Admin)
 router.route("/").get(authentication, restricTo("0"), getAllUser);
 
-// Route để cập nhật thông tin người dùng, bao gồm ảnh đại diện
-router.route("/update-info").patch(authentication,  upload.single('profilePicture'), updateUserInfo)
+// Route to update user info (including profile picture)
+router.route("/update-info").patch(
+  authentication, 
+  formidableMiddleware(), // Apply formidable middleware here
+  updateUserInfo
+);
+
 module.exports = router;

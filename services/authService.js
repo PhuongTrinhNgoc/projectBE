@@ -8,7 +8,7 @@ const user = require('../db/models/user');
 const requestPasswordReset = async (email) => {
   const users = await user.findOne({ where: { email } });
   if (!users) {
-    throw new Error('No user found with that email address');
+    throw new Error('No user found with that email address2');
   }
 
   // Tạo mã reset password và lưu vào cơ sở dữ liệu

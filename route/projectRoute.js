@@ -6,13 +6,14 @@ const {
   updateProject,
   deleteProject,
 } = require("../controller/projectController");
+const formidableMiddleware = require("../middlewere/formidableMiddleware");
 
 // /route/authRouter.js
 const router = require("express").Router();
 
 router
   .route("/")
-  .post(authentication, restricTo("1"), createProject)
+  .post(authentication, restricTo("1"), formidableMiddleware(), createProject)
   .get(authentication, restricTo("1"), getAllProject);
 router
   .route("/:id")
