@@ -1,5 +1,6 @@
 # list API : 
--user : {url}/api/v1/auth/signup - method post
+-user : 
+   {url}/api/v1/auth/signup - method post
         body: "userType":["1"], ==> ["1"] or  ["2"] or  ["1","2"] 
               "firstName":"test",
               "lastName" :"test",
@@ -24,7 +25,8 @@
                   body: "resetCode":"123451"
                           "newPassword":"1234567"
                           =======
--project : {url}/api/v1/projects -> create a project : method post 
+-project : 
+    {url}/api/v1/projects -> create a project : method post 
             body :  "title":"PHUONG ADD system test 4",
                     "productImage":["img.png"],
                     "price":"25.0",
