@@ -151,11 +151,20 @@ const loginAdmin = catchAsync(async (req, res, next) => {
 
   const token = generateToken({ id: result.id });
 
+  // Lưu token vào cookies
+  res.cookie('token', token, {
+    httpOnly: true, // Chỉ server mới có thể truy cập
+    secure: process.env.NODE_ENV === 'production', // Bật chế độ bảo mật trong môi trường production
+    sameSite: 'strict', // Bảo vệ chống lại CSRF
+    maxAge: 24 * 60 * 60 * 1000, // Token có hiệu lực trong 1 ngày
+  });
+
   res.status(200).json({
     status: "success",
-    token,
+    token, // Gửi token trong response (nếu cần)
   });
 });
+
 
 // Change password for admin
 const changePasswordForAdmin = catchAsync(async (req, res, next) => {
@@ -337,12 +346,15 @@ const forgotPassword = catchAsync(async (req, res, next) => {
 const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
+  // Kiểm tra xem email và mật khẩu có được cung cấp không
   if (!email || !password) {
     return next(new AppError("Please provide both email and password", 400));
   }
 
+  // Tìm user theo email
   const result = await user.findOne({ where: { email } });
 
+  // Kiểm tra email và mật khẩu có hợp lệ không
   if (!result || !(await bcrypt.compare(password, result.password))) {
     return next(new AppError("Incorrect email or password", 401));
   }
@@ -354,13 +366,25 @@ const login = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Tạo token
   const token = generateToken({ id: result.id });
 
+  // Cài đặt token vào cookies
+  res.cookie('token', token, {
+    httpOnly: true, // Chỉ truy cập được bởi server, bảo vệ chống lại XSS
+    secure: process.env.NODE_ENV === 'production', // Chỉ bật trong môi trường production
+    sameSite: 'strict', // Bảo vệ chống lại CSRF
+    maxAge: 24 * 60 * 60 * 1000, // Thời gian tồn tại của cookie (1 ngày)
+  });
+
+  // Trả về phản hồi JSON kèm với token (nếu cần cho phía client)
   res.status(200).json({
     status: "success",
-    token,
+    message: "Login successful",
+    token, // Bạn có thể bỏ token này nếu chỉ cần lưu trong cookies
   });
 });
+
 const resetPasswordController = catchAsync(async (req, res, next) => {
   const { resetCode, newPassword } = req.body;
 
