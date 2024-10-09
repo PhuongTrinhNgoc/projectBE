@@ -1,10 +1,10 @@
 const { Sequelize } = require("sequelize");
 const { Op } = require("sequelize"); // Đảm bảo Op được import
-const user = require("../db/models/user");
+const user = require("../../src/db/models/user");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const formidable = require("formidable");
-const cloudinary = require("../controller/cloudinary/cloudinaryConfig"); // Đường dẫn đến file cloudinary config
+const cloudinary = require("./cloudinary/cloudinaryConfig"); // Đường dẫn đến file cloudinary config
 
 // Lấy danh sách người dùng với phân trang
 const getAllUser = catchAsync(async (req, res, next) => {
