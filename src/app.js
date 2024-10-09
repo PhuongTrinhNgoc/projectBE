@@ -2,6 +2,7 @@ require("dotenv").config({ path: `${process.cwd()}` });
 const express = require("express");
 const cors = require("cors");
 const app = express();
+app.use(cors());
 
 const authRouter = require("./route/authRouter");
 const useRouter = require("./route/userRouter");
@@ -10,12 +11,6 @@ const adminRouter = require("./route/adminRouter");
 const catchAsync = require("./utils/catchAsync");
 const AppError = require("./utils/appError");
 const globalErrorHandle = require("./controller/errorController");
-app.use(cors({
-  origin: 'http://localhost:4200', // Thay đổi thành miền của ứng dụng front-end của bạn
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Quan trọng: cho phép gửi cookies và headers xác thực
-}));
 // Middleware để parse dữ liệu JSON
 app.use(express.json());
 
