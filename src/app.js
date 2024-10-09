@@ -39,7 +39,6 @@ app.use(globalErrorHandle);
 // Khởi động server
 
 const port = process.env.PORT || 3000;
-
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Server is running on port ${port}`);
 });
