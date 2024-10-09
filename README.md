@@ -23,14 +23,14 @@
                   check code send in email : 
                   body: "resetCode":"123451"
                           "newPassword":"1234567"
-                          
+                          =======
 -project : {url}/api/v1/projects -> create a project : method post 
             body :  "title":"PHUONG ADD system test 4",
-                    "productImage":["https://www.facebook.com/photo/","https://www.facebook.com/photo/"],
+                    "productImage":["img.png"],
                     "price":"25.0",
                     "shortDescription":"test shiutr efds csd ds fđ sd sss ",
                     "description":"description test",
-                    "productUrl":"https://www.facebook.com/photo/?fbid=869722901929657&set=a.518457703722847&__cft__[0]",
+                    "productUrl":"img.png",
                     "category":["nodejs","backend"],
                     "tags":["test tags","backend project"]
 
