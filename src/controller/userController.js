@@ -5,21 +5,10 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const formidable = require("formidable");
 const cloudinary = require("./cloudinary/cloudinaryConfig"); // Đường dẫn đến file cloudinary config
+const jwt = require("jsonwebtoken");
 
 // Lấy danh sách người dùng với phân trang
 const getAllUser = catchAsync(async (req, res, next) => {
-  // Lấy token từ cookies
-  const token = req.cookies.token;
-
-  // Kiểm tra nếu không có token trong cookies
-  if (!token) {
-    return next(new AppError('You are not logged in! Please log in to access this resource.', 401));
-  }
-
-  // (Tùy chọn) Giải mã và xác thực token, ví dụ với JWT
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-  // Sau khi xác thực, tiếp tục logic phân trang
   const page = req.query.page ? parseInt(req.query.page) : 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const offset = (page - 1) * limit; // Bắt đầu từ phần tử nào
@@ -50,6 +39,7 @@ const getAllUser = catchAsync(async (req, res, next) => {
     data: users.rows, // Người dùng cho trang hiện tại
   });
 });
+
 
 
 // Middleware để phân tích file tải lên

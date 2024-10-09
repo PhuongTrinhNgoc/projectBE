@@ -164,6 +164,33 @@ const loginAdmin = catchAsync(async (req, res, next) => {
     token, // Gửi token trong response (nếu cần)
   });
 });
+// const loginAdmin = catchAsync(async (req, res, next) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) {
+//     return next(new AppError("Please provide both email and password", 400));
+//   }
+
+//   const result = await user.findOne({ where: { email } });
+
+//   if (!result || !(await bcrypt.compare(password, result.password))) {
+//     return next(new AppError("Incorrect email or password", 401));
+//   }
+
+//   // Kiểm tra nếu userType không chứa "0" (super admin)
+//   if (!result.userType.includes("0")) {
+//     return next(
+//       new AppError("You are not authorized to access this resource", 403)
+//     );
+//   }
+
+//   const token = generateToken({ id: result.id });
+
+//   res.status(200).json({
+//     status: "success",
+//     token,
+//   });
+// });
 
 
 // Change password for admin
@@ -215,38 +242,41 @@ const changePasswordForAdmin = catchAsync(async (req, res, next) => {
   });
 });
 
-const authentication = catchAsync(async (req, res, next) => {
-  let idToken = "";
+  // Verify the token
+  const authentication = catchAsync(async (req, res, next) => {
+    let idToken = "";
+  
+    // Kiểm tra tiêu đề authorization có chứa token không
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      idToken = req.headers.authorization.split(" ")[1];
+    }
+  
+    if (!idToken) {
+      return next(new AppError("Please login to get access", 401));
+    }
+  
+    // Xác minh token
+    const tokenDetail = jwt.verify(idToken, process.env.JWT_SECRET_KEY);
+  
+    // Tìm người dùng từ token
+    const freshUser = await user.findByPk(tokenDetail.id);
+  
+    // Kiểm tra nếu người dùng không tồn tại
+    if (!freshUser) {
+      return next(new AppError("User no longer exists", 401));
+    }
+  
+    // Gán thông tin người dùng vào request
+    req.user = freshUser;
+  
+    // Tiếp tục xử lý yêu cầu
+    return next();
+  });
+  
 
-  // Kiểm tra tiêu đề authorization có chứa token không
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    idToken = req.headers.authorization.split(" ")[1];
-  }
-
-  if (!idToken) {
-    return next(new AppError("Please login to get access", 401));
-  }
-
-  // Xác minh token
-  const tokenDetail = jwt.verify(idToken, process.env.JWT_SECRET_KEY);
-
-  // Tìm người dùng từ token
-  const freshUser = await user.findByPk(tokenDetail.id);
-
-  // Kiểm tra nếu người dùng không tồn tại
-  if (!freshUser) {
-    return next(new AppError("User no longer exists", 401));
-  }
-
-  // Gán thông tin người dùng vào request
-  req.user = freshUser;
-
-  // Tiếp tục xử lý yêu cầu
-  return next();
-});
 
 const changePassword = catchAsync(async (req, res, next) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
