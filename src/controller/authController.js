@@ -322,9 +322,11 @@ const changePassword = catchAsync(async (req, res, next) => {
 
 const forgotPassword = catchAsync(async (req, res, next) => {
   const { email } = req.body;
-
+  console.log(email);
+  
   // Kiểm tra xem email có tồn tại trong cơ sở dữ liệu không
   const userRecord = await user.findOne({ where: { email } });
+  console.log(userRecord);
 
   if (!userRecord) {
     return next(new AppError("No user found with that email address", 404));
