@@ -33,28 +33,55 @@ const signup = catchAsync(async (req, res, next) => {
   // Kiểm tra người dùng đã tồn tại hay chưa
   const existingUser = await user.findOne({ where: { email } });
   if (existingUser) {
-    // Người dùng đã tồn tại
+    const existingRoles = existingUser.userType;
+
+    // Kiểm tra nếu người dùng đã có tất cả các vai trò yêu cầu
+    const hasAllRoles = userType.every((type) => existingRoles.includes(type));
+    if (hasAllRoles) {
+      return next(
+        new AppError(
+          "User already has the requested role(s). No changes needed.",
+          400
+        )
+      );
+    }
+
+    // Kiểm tra nếu đã có yêu cầu thay đổi vai trò đang chờ xử lý
+    const existingRequest = await RoleChangeRequest.findOne({
+      where: {
+        userId: existingUser.id,
+        status: "pending",
+      },
+    });
+
+    if (existingRequest) {
+      return next(
+        new AppError(
+          "A role change request is already pending. Please wait for approval.",
+          400
+        )
+      );
+    }
+
+    // Xử lý khi người dùng chỉ yêu cầu một vai trò
     if (userType.length === 1) {
-      if (userType[0] === "2" && existingUser.userType.includes("1")) {
+      if (userType[0] === "2" && existingRoles.includes("1")) {
         // Người dùng đã có vai trò '1' và đang đăng ký vai trò '2'
-        // Cập nhật người dùng để thêm vai trò '2' mà không cần gửi yêu cầu phê duyệt
         await existingUser.update({
-          userType: [...existingUser.userType, "2"],
+          userType: [...existingRoles, "2"],
         });
 
         return res.status(200).json({
           status: "success",
           message: "Role '2' has been added successfully.",
         });
-      } else if (userType[0] === "1" && existingUser.userType.includes("2")) {
+      } else if (userType[0] === "1" && existingRoles.includes("2")) {
         // Người dùng đã có vai trò '2' và đang đăng ký vai trò '1'
-        // Gửi yêu cầu phê duyệt cho admin
         await RoleChangeRequest.create({
           userId: existingUser.id,
           status: "pending",
           reviewedBy: null,
           requesterEmail: existingUser.email,
-          // Chưa được xem xét
         });
 
         return res.status(200).json({
@@ -96,6 +123,8 @@ const signup = catchAsync(async (req, res, next) => {
     });
   }
 });
+
+
 const approveRoleChange = catchAsync(async (req, res, next) => {
   const { userId } = req.body;
 
