@@ -190,7 +190,18 @@ const loginAdmin = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    token, // Gửi token trong response (nếu cần)
+    token,
+    data: {
+      user: {
+        id: result.id,          // Sử dụng 'result' để lấy thông tin người dùng
+        firstName: result.firstName,
+        lastName: result.lastName,
+        email: result.email,
+        userType: result.userType,
+        profilePicture: result.profilePicture
+
+      }
+    }
   });
 });
 // const loginAdmin = catchAsync(async (req, res, next) => {
@@ -442,7 +453,17 @@ const login = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     message: "Login successful",
-    token, // Bạn có thể bỏ token này nếu chỉ cần lưu trong cookies
+    token,
+    data: {
+      user: {
+        id: result.id,
+        firstName: result.firstName,
+        lastName: result.lastName,
+        email: result.email,
+        userType: result.userType,
+        profilePicture: result.profilePicture
+      }
+    }
   });
 });
 
