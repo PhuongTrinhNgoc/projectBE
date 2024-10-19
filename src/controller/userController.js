@@ -46,7 +46,7 @@ const getAllUser = catchAsync(async (req, res, next) => {
 // Cập nhật thông tin người dùng
 const updateUserInfo = catchAsync(async (req, res, next) => {
   const userId = req.user.id; // Lấy ID người dùng từ token
-  const { userType, firstName, lastName, profilePicture } = req.body;
+  const { userType, firstName, lastName } = req.body;
 
   // Tìm người dùng theo ID
   const userRecord = await user.findByPk(userId);
@@ -66,13 +66,14 @@ const updateUserInfo = catchAsync(async (req, res, next) => {
     userRecord.lastName = lastName; 
   }
 
-  if (profilePicture) {
+  if (req.files && req.files.profilePicture) {
     try {
-      const result = await cloudinary.uploader.upload(profilePicture, {
-        resource_type: "auto", 
-        folder: "user", 
+      const profilePicture = req.files.profilePicture; // Thông tin file ảnh
+      const result = await cloudinary.uploader.upload(profilePicture.filepath, {
+        resource_type: "auto",
+        folder: "user",
       });
-      userRecord.profilePicture = result.secure_url; 
+      userRecord.profilePicture = result.secure_url; // Lưu đường dẫn ảnh đã upload
     } catch (err) {
       return next(new AppError("Error uploading image to Cloudinary", 500));
     }
