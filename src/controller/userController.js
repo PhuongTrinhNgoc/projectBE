@@ -42,12 +42,11 @@ const getAllUser = catchAsync(async (req, res, next) => {
 
 
 
-// Middleware để phân tích file tải lên
 
 // Cập nhật thông tin người dùng
 const updateUserInfo = catchAsync(async (req, res, next) => {
   const userId = req.user.id; // Lấy ID người dùng từ token
-  const { userType, firstName, lastName } = req.body;
+  const { userType, firstName, lastName, profilePicture } = req.body;
 
   // Tìm người dùng theo ID
   const userRecord = await user.findByPk(userId);
@@ -57,31 +56,28 @@ const updateUserInfo = catchAsync(async (req, res, next) => {
   }
 
   // Cập nhật thông tin người dùng nếu có
-  if (userType)
-    userRecord.userType = Array.isArray(userType) ? userType[0] : userType;
-  if (firstName)
-    userRecord.firstName = Array.isArray(firstName) ? firstName[0] : firstName;
-  if (lastName)
-    userRecord.lastName = Array.isArray(lastName) ? lastName[0] : lastName;
+  if (userType) {
+    userRecord.userType = userType; 
+  }
+  if (firstName) {
+    userRecord.firstName = firstName; 
+  }
+  if (lastName) {
+    userRecord.lastName = lastName; 
+  }
 
-  // Cập nhật ảnh đại diện nếu có
-  if (req.files && req.files.profilePicture) {
-    const profilePicture = Array.isArray(req.files.profilePicture)
-      ? req.files.profilePicture[0]
-      : req.files.profilePicture;
-
+  if (profilePicture) {
     try {
-      const result = await cloudinary.uploader.upload(profilePicture.filepath, {
-        resource_type: "auto",
-        folder: "user",
+      const result = await cloudinary.uploader.upload(profilePicture, {
+        resource_type: "auto", 
+        folder: "user", 
       });
-      userRecord.profilePicture = result.secure_url; // Lưu đường dẫn ảnh đã upload
+      userRecord.profilePicture = result.secure_url; 
     } catch (err) {
       return next(new AppError("Error uploading image to Cloudinary", 500));
     }
   }
 
-  // Lưu thay đổi vào cơ sở dữ liệu
   await userRecord.save();
 
   res.status(200).json({
@@ -92,5 +88,6 @@ const updateUserInfo = catchAsync(async (req, res, next) => {
     },
   });
 });
+
 
 module.exports = { getAllUser, updateUserInfo };
