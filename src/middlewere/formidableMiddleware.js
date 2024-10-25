@@ -5,9 +5,9 @@ const path = require("path");
 const formidableMiddleware = (options = {}) => {
   return (req, res, next) => {
     const form = new formidable.IncomingForm({
-      uploadDir: path.join(__dirname, "../uploads"), // Change this to your desired upload directory
-      keepExtensions: true, // Keep file extensions
-      ...options, // Allow customization of options
+      uploadDir: path.join(__dirname, "../uploads"),
+      keepExtensions: true,
+      ...options,
     });
 
     form.parse(req, (err, fields, files) => {
@@ -15,10 +15,16 @@ const formidableMiddleware = (options = {}) => {
         return next(err);
       }
 
-      req.body = fields; // Attach fields to the request
-      req.files = files; // Attach files to the request
+      req.body = fields;
+      req.files = files;
       next();
     });
+
+    // Kiểm tra xem có dữ liệu JSON trong body không
+    if (req.is('application/json')) {
+      req.body = req.body || {};
+      next();
+    }
   };
 };
 

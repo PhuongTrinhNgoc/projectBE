@@ -6,7 +6,7 @@ const {
   forgotPassword,
   resetPasswordController,
   loginAdmin,
-  changePasswordForAdmin
+  changePasswordForAdmin,
 } = require("../controller/authController");
 const router = require("express").Router();
 
@@ -17,5 +17,6 @@ router.route("/changePassword").post(changePassword);
 router.route("/changePasswordForAdmin").post(changePasswordForAdmin);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPasswordController);
+
 
 module.exports = router;

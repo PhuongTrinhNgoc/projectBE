@@ -1,6 +1,6 @@
 const express = require("express");
 const { authentication, restricTo } = require("../controller/authController");
-const { getAllUser, updateUserInfo } = require("../controller/userController");
+const { getAllUser, updateUserInfo, changeRole, requestRoleChange } = require("../controller/userController");
 const formidableMiddleware = require("../middlewere/formidableMiddleware"); // Correct path to the middleware
 
 const router = express.Router();
@@ -14,5 +14,6 @@ router.route("/update-info").patch(
   formidableMiddleware(), // Apply formidable middleware here
   updateUserInfo
 );
+router.route("/send-changeRole/:token").post(authentication,requestRoleChange);
 
 module.exports = router;

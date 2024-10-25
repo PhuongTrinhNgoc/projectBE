@@ -101,6 +101,14 @@ const user = sequelize.define(
     resetPasswordExpires: {
       type: DataTypes.DATE,
     },
+    changeRoleToken: {  // Thêm cột changeRoleToken
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    changeRoleTokenExpires: {  // Thêm cột changeRoleTokenExpires
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,

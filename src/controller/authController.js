@@ -33,95 +33,39 @@ const signup = catchAsync(async (req, res, next) => {
   // Kiểm tra người dùng đã tồn tại hay chưa
   const existingUser = await user.findOne({ where: { email } });
   if (existingUser) {
-    const existingRoles = existingUser.userType;
-
-    // Kiểm tra nếu người dùng đã có tất cả các vai trò yêu cầu
-    const hasAllRoles = userType.every((type) => existingRoles.includes(type));
-    if (hasAllRoles) {
-      return next(
-        new AppError(
-          "User already has the requested role(s). No changes needed.",
-          400
-        )
-      );
-    }
-
-    // Kiểm tra nếu đã có yêu cầu thay đổi vai trò đang chờ xử lý
-    const existingRequest = await RoleChangeRequest.findOne({
-      where: {
-        userId: existingUser.id,
-        status: "pending",
-      },
-    });
-
-    if (existingRequest) {
-      return next(
-        new AppError(
-          "A role change request is already pending. Please wait for approval.",
-          400
-        )
-      );
-    }
-
-    // Xử lý khi người dùng chỉ yêu cầu một vai trò
-    if (userType.length === 1) {
-      if (userType[0] === "2" && existingRoles.includes("1")) {
-        // Người dùng đã có vai trò '1' và đang đăng ký vai trò '2'
-        await existingUser.update({
-          userType: [...existingRoles, "2"],
-        });
-
-        return res.status(200).json({
-          status: "success",
-          message: "Role '2' has been added successfully.",
-        });
-      } else if (userType[0] === "1" && existingRoles.includes("2")) {
-        // Người dùng đã có vai trò '2' và đang đăng ký vai trò '1'
-        await RoleChangeRequest.create({
-          userId: existingUser.id,
-          status: "pending",
-          reviewedBy: null,
-          requesterEmail: existingUser.email,
-        });
-
-        return res.status(200).json({
-          status: "success",
-          message:
-            "Request to add role '1' has been sent. Please wait for approval.",
-        });
-      } else {
-        return next(
-          new AppError("User already exists with the requested role", 400)
-        );
-      }
-    }
-  } else {
-    // Tạo người dùng mới
-    const newUser = await user.create({
-      userType,
-      firstName,
-      lastName,
-      email,
-      password,
-      confirmPassword,
-    });
-
-    if (!newUser) {
-      return next(new AppError("Failed to create the user", 400));
-    }
-
-    const result = newUser.toJSON();
-    delete result.password;
-    delete result.deletedAt;
-
-    // Tạo token JWT
-    result.token = generateToken({ id: result.id });
-
-    res.status(201).json({
-      status: "success",
-      data: result,
-    });
+    return next(
+      new AppError(
+        "User already exists with the requested email.",
+        400
+      )
+    );
   }
+
+  // Tạo người dùng mới
+  const newUser = await user.create({
+    userType,
+    firstName,
+    lastName,
+    email,
+    password,
+    confirmPassword,
+  });
+
+  if (!newUser) {
+    return next(new AppError("Failed to create the user", 400));
+  }
+
+  const result = newUser.toJSON();
+  delete result.password;
+  delete result.deletedAt;
+
+  // Tạo token JWT
+  result.token = generateToken({ id: result.id });
+
+  res.status(201).json({
+    status: "success",
+    data: result,
+  });
 });
 
 
@@ -504,6 +448,8 @@ const resetPasswordController = catchAsync(async (req, res, next) => {
 });
 // Restrict function based on userType array
 const restricTo = (...userTypes) => {
+  console.log(userTypes);
+  
   const checkPermission = (req, res, next) => {
     if (!userTypes.some((type) => req.user.userType.includes(type))) {
       return next(
@@ -525,5 +471,5 @@ module.exports = {
   resetPasswordController,
   loginAdmin,
   changePasswordForAdmin,
-  approveRoleChange,
+  approveRoleChange
 };

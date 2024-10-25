@@ -10,9 +10,10 @@ const createProject = catchAsync(async (req, res, next) => {
   const body = req.body;
   const userId = req.user.id;
 
-  // Create the project with text data
+  // Tạo dự án với dữ liệu văn bản
   const newProject = await project.create({
     title: body.title,
+    productImage: [], // Khởi tạo dưới dạng mảng rỗng để cập nhật sau
     price: body.price,
     shortDescription: body.shortDescription,
     description: body.description,
@@ -22,26 +23,35 @@ const createProject = catchAsync(async (req, res, next) => {
     createdBy: userId,
   });
 
-  // Handle the productImage file upload
-  if (req.files && req.files.productImage) {
-    const productImage = Array.isArray(req.files.productImage)
-      ? req.files.productImage[0]
-      : req.files.productImage;
+  console.log("bodyyyyyyyyyyy", body);
+
+  // Kiểm tra xem có productImage trong body không
+  if (req.body.productImage) {
+    const productImageUrls = Array.isArray(req.body.productImage)
+      ? req.body.productImage
+      : [req.body.productImage];
 
     try {
-      const result = await cloudinary.uploader.upload(productImage.filepath, {
-        resource_type: "auto",
-        folder: "projects", // Store the images in a separate folder called "projects"
+      // Tải từng ảnh lên Cloudinary
+      const uploadPromises = productImageUrls.map(async (imageUrl) => {
+        const result = await cloudinary.uploader.upload(imageUrl, {
+          resource_type: "auto",
+          folder: "projects", // Lưu ảnh vào thư mục "projects"
+        });
+        return result.secure_url; // Lưu lại URL an toàn
       });
-      
-      // Update project with the Cloudinary image URL
-      newProject.productImage = result.secure_url;
+
+      // Chờ tất cả các ảnh được tải lên
+      const uploadedImages = await Promise.all(uploadPromises);
+      newProject.productImage = uploadedImages; // Cập nhật URL đã tải lên cho project
     } catch (err) {
+      console.log(err);
       return next(new AppError("Error uploading product image to Cloudinary", 500));
     }
   }
 
-  await newProject.save(); // Save the project after updating the image URL
+  // Lưu dự án sau khi cập nhật productImage
+  await newProject.save();
 
   return res.status(201).json({
     status: "success",
@@ -140,8 +150,8 @@ const deleteProject = catchAsync(async (req, res, next) => {
   });
 });
 module.exports = {
-  getAllProject,
   createProject,
+  getAllProject,
   getProjectById,
   updateProject,
   deleteProject,

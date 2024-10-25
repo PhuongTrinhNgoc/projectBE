@@ -14,7 +14,7 @@ const router = require("express").Router();
 router
   .route("/")
   .post(authentication, restricTo("1"), formidableMiddleware(), createProject)
-  .get(authentication, restricTo("1"), getAllProject);
+  .get(authentication, restricTo("1","0"), getAllProject);
 router
   .route("/:id")
   .get(authentication,restricTo("1"), getProjectById)

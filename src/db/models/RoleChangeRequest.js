@@ -54,11 +54,11 @@ const RoleChangeRequest = sequelize.define(
 );
 
 RoleChangeRequest.associate = function (models) {
-  RoleChangeRequest.belongsTo(models.User, {
+  RoleChangeRequest.belongsTo(models.user, {
     foreignKey: "userId",
     as: "requester",
   });
-  RoleChangeRequest.belongsTo(models.User, {
+  RoleChangeRequest.belongsTo(models.user, {
     foreignKey: "reviewedBy",
     as: "reviewer",
   });
