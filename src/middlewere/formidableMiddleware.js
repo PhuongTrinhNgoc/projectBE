@@ -1,11 +1,11 @@
-// middlewares/formidableMiddleware.js
 const formidable = require("formidable");
 const path = require("path");
+const fs = require("fs");
 
 const formidableMiddleware = (options = {}) => {
   return (req, res, next) => {
     const form = new formidable.IncomingForm({
-      uploadDir: path.join(__dirname, "../uploads"),
+      uploadDir: path.join(__dirname, "../uploads"), // Lưu vào thư mục uploads tạm thời
       keepExtensions: true,
       ...options,
     });
@@ -15,13 +15,25 @@ const formidableMiddleware = (options = {}) => {
         return next(err);
       }
 
-      req.body = fields;
-      req.files = files;
+      req.body = fields; // Gán các trường văn bản cho `req.body`
+      req.files = files; // Gán các tệp cho `req.files`
+
+      // Tiếp tục tới controller
       next();
+
+      // Xóa file sau khi response được gửi đi
+      if (files) {
+        Object.values(files).forEach((file) => {
+          const filePath = Array.isArray(file) ? file[0].filepath : file.filepath;
+          fs.unlink(filePath, (unlinkErr) => {
+            if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+          });
+        });
+      }
     });
 
-    // Kiểm tra xem có dữ liệu JSON trong body không
-    if (req.is('application/json')) {
+    // Kiểm tra xem có dữ liệu JSON trong body không (cho trường hợp không có file)
+    if (req.is("application/json")) {
       req.body = req.body || {};
       next();
     }
