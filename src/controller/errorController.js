@@ -23,7 +23,6 @@ const sendErrorProd = (error, res) => {
       message,
     });
   }
-  // console.log(error.name,error.message,stack);
   return res.status(500).json({
     status: "error",
     message: "somthing",
@@ -31,7 +30,6 @@ const sendErrorProd = (error, res) => {
 };
 
 const globalErrorHandle = (err, req, res, next) => {
-  // console.log(err.name);
   if (err.name == "JsonWebTokenError") {
     err = new AppError("Invalid token", 401);
   }

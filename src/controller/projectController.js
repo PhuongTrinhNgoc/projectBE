@@ -23,8 +23,6 @@ const createProject = catchAsync(async (req, res, next) => {
     createdBy: userId,
   });
 
-  console.log("bodyyyyyyyyyyy", body);
-
   // Kiểm tra xem có productImage trong body không
   if (req.body.productImage) {
     const productImageUrls = Array.isArray(req.body.productImage)

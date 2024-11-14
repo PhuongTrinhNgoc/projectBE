@@ -306,12 +306,8 @@ const changePassword = catchAsync(async (req, res, next) => {
 
 const forgotPassword = catchAsync(async (req, res, next) => {
   const { email } = req.body;
-  console.log(email);
-  
   // Kiểm tra xem email có tồn tại trong cơ sở dữ liệu không
   const userRecord = await user.findOne({ where: { email } });
-  console.log(userRecord);
-
   if (!userRecord) {
     return next(new AppError("No user found with that email address", 404));
   }
@@ -399,14 +395,12 @@ const login = catchAsync(async (req, res, next) => {
     message: "Login successful",
     token,
     data: {
-      user: {
         id: result.id,
         firstName: result.firstName,
         lastName: result.lastName,
         email: result.email,
         userType: result.userType,
         profilePicture: result.profilePicture
-      }
     }
   });
 });
@@ -448,8 +442,6 @@ const resetPasswordController = catchAsync(async (req, res, next) => {
 });
 // Restrict function based on userType array
 const restricTo = (...userTypes) => {
-  console.log(userTypes);
-  
   const checkPermission = (req, res, next) => {
     if (!userTypes.some((type) => req.user.userType.includes(type))) {
       return next(

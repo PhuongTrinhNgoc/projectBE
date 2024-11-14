@@ -20,16 +20,6 @@ const formidableMiddleware = (options = {}) => {
 
       // Tiếp tục tới controller
       next();
-
-      // Xóa file sau khi response được gửi đi
-      if (files) {
-        Object.values(files).forEach((file) => {
-          const filePath = Array.isArray(file) ? file[0].filepath : file.filepath;
-          fs.unlink(filePath, (unlinkErr) => {
-            if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
-          });
-        });
-      }
     });
 
     // Kiểm tra xem có dữ liệu JSON trong body không (cho trường hợp không có file)

@@ -4,6 +4,6 @@ require('dotenv').config();
    cloudinary.config({ 
     cloud_name: 'dluus3fyi', 
     api_key: process.env.API_KEY_CLOUD, 
-    api_secret: process.env.API_SECRET_CLOUD // Click 'View API Keys' above to copy your API secret
+    api_secret: process.env.API_SECRET_CLOUD 
 });
 module.exports = cloudinary;
