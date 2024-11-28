@@ -2,94 +2,85 @@ const catchAsync = require("../utils/catchAsync");
 const project = require("../db/models/project");
 const user = require("../db/models/user");
 const AppError = require("../utils/appError");
-const cloudinary = require("../controller/cloudinary/cloudinaryConfig"); // Đường dẫn đến file cloudinary config
-
-const formidable = require("formidable");
+const { v2: cloudinary } = require("../controller/cloudinary/cloudinaryConfig");
 
 const createProject = catchAsync(async (req, res, next) => {
   const body = req.body;
   const userId = req.user.id;
 
-  // Tạo dự án với dữ liệu văn bản
+  // Tạo dự án với dữ liệu ban đầu
   const newProject = await project.create({
     title: body.title,
-    productImage: [], // Khởi tạo dưới dạng mảng rỗng để cập nhật sau
+    productImage: [], 
     price: body.price,
     shortDescription: body.shortDescription,
     description: body.description,
-    productUrl: body.productUrl,
+    productUrl: "", 
     category: body.category,
     tags: body.tags,
     createdBy: userId,
   });
 
-  // Kiểm tra xem có productImage trong body không
-  if (req.body.productImage) {
-    const productImageUrls = Array.isArray(req.body.productImage)
-      ? req.body.productImage
-      : [req.body.productImage];
+  try {
+    // **1. Upload `productUrl` (1 ảnh)**
+    if (req.body.productUrl) {
+      const productUrlResult = await cloudinary.uploader.upload(req.body.productUrl, {
+        resource_type: "image",
+        folder: "project",
+      });
+      newProject.productUrl = productUrlResult.secure_url;
+    }
 
-    try {
-      // Tải từng ảnh lên Cloudinary
-      const uploadPromises = productImageUrls.map(async (imageUrl) => {
+    // **2. Upload `productImage` (nhiều ảnh)**
+    if (req.body.productImage && Array.isArray(req.body.productImage)) {
+      const uploadPromises = req.body.productImage.map(async (imageUrl) => {
         const result = await cloudinary.uploader.upload(imageUrl, {
-          resource_type: "auto",
-          folder: "projects", // Lưu ảnh vào thư mục "projects"
+          resource_type: "image",
+          folder: "projects", 
         });
-        return result.secure_url; // Lưu lại URL an toàn
+        return result.secure_url; 
       });
 
-      // Chờ tất cả các ảnh được tải lên
       const uploadedImages = await Promise.all(uploadPromises);
-      newProject.productImage = uploadedImages; // Cập nhật URL đã tải lên cho project
-    } catch (err) {
-      console.log(err);
-      return next(new AppError("Error uploading product image to Cloudinary", 500));
+      newProject.productImage = uploadedImages; 
     }
+
+    // Lưu lại project với các URL đã cập nhật
+    await newProject.save();
+
+    return res.status(201).json({
+      status: "success",
+      data: newProject,
+    });
+  } catch (error) {
+    console.error("Lỗi khi upload ảnh:", error);
+    return next(new AppError("Error uploading images to Cloudinary", 500));
   }
-
-  // Lưu dự án sau khi cập nhật productImage
-  await newProject.save();
-
-  return res.status(201).json({
-    status: "success",
-    data: newProject,
-  });
 });
 
-
-
 const getAllProject = catchAsync(async (req, res, next) => {
-  const page = req.query.page ? parseInt(req.query.page) : 1;
+  const page = req.query.page ? parseInt(req.query.page, 10) : 1;
   const limit = parseInt(req.query.limit, 10) || 20;
-  const offset = (page - 1) * limit; // Bắt đầu từ phần tử nào
+  const offset = (page - 1) * limit;
   const userId = req.user.id;
-  // Truy vấn dữ liệu và số lượng tổng cộng
-  const { rows: projects, count: totalProjects } =
-    await project.findAndCountAll({
-      include: user,
-      where: { createdBy: userId },
-      limit: limit,
-      offset: offset,
-    });
 
-  const totalPages = Math.ceil(totalProjects / limit); // Tính tổng số trang
+  const { rows: projects, count: totalProjects } = await project.findAndCountAll({
+    include: user,
+    where: { createdBy: userId },
+    limit: limit,
+    offset: offset,
+  });
 
-  // Kiểm tra nếu trang không tồn tại
+  const totalPages = Math.ceil(totalProjects / limit);
   if (page > totalPages) {
-    return next(
-      new AppError(
-        `Page ${page} does not exist. Total number of pages is ${totalPages}`,
-        404
-      )
-    );
+    return next(new AppError(`Page ${page} does not exist.`, 404));
   }
 
-  return res.json({
+  res.json({
     status: "success",
-    page: page, // Trang hiện tại
-    totalPages: totalPages, // Tổng số trang
-    totalItems: totalProjects, // Tổng số người dùng
+    page,
+    totalPages,
+    totalItems: totalProjects,
     data: projects,
   });
 });
@@ -98,55 +89,98 @@ const getProjectById = catchAsync(async (req, res, next) => {
   const id = req.params.id;
   const result = await project.findByPk(id, { include: user });
   if (!result) {
-    return next(new AppError("Invalid project id", 400));
+    return next(new AppError("Project not found", 404));
   }
-  return res.json({
+
+  res.json({
     status: "success",
     data: result,
   });
 });
+
 const updateProject = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
   const projectId = req.params.id;
   const body = req.body;
+
   const rel = await project.findOne({
     where: { id: projectId, createdBy: userId },
   });
+
   if (!rel) {
-    return next(new AppError("Ivalid project id", 400));
+    return next(new AppError("Project not found", 404));
   }
 
-  rel.title = body.title;
-  rel.productImage = body.productImage;
-  rel.price = body.price;
-  rel.shortDescription = body.shortDescription;
-  rel.description = body.description;
-  rel.productUrl = body.productUrl;
-  rel.category = body.category;
-  rel.tags = body.tags;
+  rel.title = body.title || rel.title;
+  rel.price = body.price || rel.price;
+  rel.shortDescription = body.shortDescription || rel.shortDescription;
+  rel.description = body.description || rel.description;
+  rel.productUrl = body.productUrl || rel.productUrl;
+  rel.category = body.category || rel.category;
+  rel.tags = body.tags || rel.tags;
+
+  if (body.productImage && Array.isArray(body.productImage)) {
+    try {
+      // Xóa ảnh cũ trên Cloudinary nếu cần
+      if (rel.productImage.length > 0) {
+        await Promise.all(
+          rel.productImage.map((imageUrl) =>
+            cloudinary.uploader.destroy(imageUrl.split('/').pop().split('.')[0])
+          )
+        );
+      }
+
+      // Upload ảnh mới lên Cloudinary
+      const uploadPromises = body.productImage.map((imageUrl) =>
+        cloudinary.uploader.upload(imageUrl, {
+          resource_type: "auto",
+          folder: "projects",
+        })
+      );
+      const uploadedImages = await Promise.all(uploadPromises);
+      rel.productImage = uploadedImages.map((image) => image.secure_url);
+    } catch (error) {
+      return next(new AppError("Error uploading images to Cloudinary", 500));
+    }
+  }
 
   const updateResult = await rel.save();
 
-  return res.json({
+  res.json({
     status: "success",
     data: updateResult,
   });
 });
+
 const deleteProject = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
   const projectId = req.params.id;
+
   const rel = await project.findOne({
     where: { id: projectId, createdBy: userId },
   });
+
   if (!rel) {
-    return next(new AppError("Ivalid project id", 400));
+    return next(new AppError("Project not found", 404));
   }
+
+  // Xóa ảnh trên Cloudinary
+  if (rel.productImage && rel.productImage.length > 0) {
+    await Promise.all(
+      rel.productImage.map((imageUrl) =>
+        cloudinary.uploader.destroy(imageUrl.split('/').pop().split('.')[0])
+      )
+    );
+  }
+
   await rel.destroy();
-  return res.json({
+
+  res.json({
     status: "success",
-    message: "delete successfully",
+    message: "Project deleted successfully.",
   });
 });
+
 module.exports = {
   createProject,
   getAllProject,

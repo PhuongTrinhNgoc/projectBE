@@ -6,7 +6,7 @@ const formidableMiddleware = require("../middlewere/formidableMiddleware"); // C
 const router = express.Router();
 
 // Route to get all users (only for Super Admin)
-router.route("/").get(authentication, restricTo("0"), getAllUser)
+router.route("/").get(authentication, getAllUser)
 router.route("/:id").get(authentication, restricTo("1","2"), getUserById)
 
 

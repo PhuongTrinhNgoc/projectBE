@@ -18,8 +18,19 @@ const getAllUser = catchAsync(async (req, res, next) => {
   const limit = parseInt(req.query.limit, 10) || 20;
   const offset = (page - 1) * limit; // Bắt đầu từ phần tử nào
 
+  const { firstName, lastName } = req.query;
+
+  const conditions = {};
+  if (firstName) {
+    conditions.firstName = { [Op.like]: `%${firstName}%` };
+  }
+  if (lastName) {
+    conditions.lastName = { [Op.like]: `%${lastName}%` }; 
+  }
+
   const users = await user.findAndCountAll({
     attributes: { exclude: ["password"] },
+    where: conditions,
     limit: limit,
     offset: offset,
   });
